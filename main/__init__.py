@@ -14,7 +14,7 @@ API_HASH = config("API_HASH", default=None)
 BOT_TOKEN = config("BOT_TOKEN", default=None)
 FORCESUB = config("FORCESUB", default=None)
 ACCESS = int("-1001688331719")
-MONGODB_URI = "mongodb+srv://projeklisatiga:Malik10_@cluster0.tgthj.mongodb.net/?retryWrites=true&w=majority"
+MONGODB_URI = config("MONGODB_URI", default=None)
 AUTH_USERS = config("AUTH", default=None)
 SUDO_USERS = []
 if len(AUTH_USERS != 0:
